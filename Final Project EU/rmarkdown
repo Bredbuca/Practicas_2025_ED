@@ -1,1 +1,151 @@
 
+---
+title: "Reporte CNA-Risaralda"
+author: "Brian Buitrago"
+date: "2025-03-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=TRUE}
+library(dplyr)
+library(data.table)
+library(readxl)
+library(ggplot2)
+library(DT)
+library(kableExtra)
+library(knitr)
+
+
+# Cargar los datos
+
+datos_dep <- readRDS(file = "datos_dep.rds")
+t_homologacion_7 <- readRDS(file = "t_homologacion_7.rds")
+tb_resumen <- readRDS(file = "tb_resumen.rds")
+tb_resumen_var <- readRDS(file = "tb_resumen_var.rds")
+tb_asimetriay_curtosis  <- readRDS(file ="tb_asimetriay_curtosis.rds")
+tdf_P_S7P85B <- readRDS(file = "tdf_P_S7P85B.rds")
+tdf_S05_TENENCIA <- readRDS(file = "tdf_S05_TENENCIA.rds")
+tb_resumen_5n <- readRDS(file = "tb_resumen_5n.rds")
+
+```
+
+# INTRODUCCION
+
+Este estudio se hace con el objetivo de describir y analizar el comportamiento de datos del sector agricola, tomando como principal fuente el Censo Nacional Agropecuario del año 2014 con enfoque en la region del departamento de Risaralda. Se toman dos variables a analizar, una de caracter cualitativo la cual hace referencia a el tipo de tenencia del territorio y otra de caracter cuantitativo que hace referencia a la cantidad de litros de leche producidos en la region de Risaralda. 
+
+Numero de registros:33916  
+Enfoque:Produccion de litros de leche UPAS en 3940 observaciones, teniendo en cuenta su Predominancia, excluyendo datos nulos.
+
+
+Se analizaron las siguientes variables:  
+
+
+| Variable       | Código                | Observaciones     |
+|----------------|-----------------------|-------------------|
+| P_S7P85B       | Producción de leche   | Ninguna           |
+| S05_TENENCIA   | Predominancia         | Ninguna           |
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+```
+<center>
+  ![Departamento de Risaralda](Mapa_Risaralda.png){width=50%}
+<center>
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+### TABLA DE HOMOLOGACION
+```{r}
+datatable(t_homologacion_7, rownames= FALSE) %>%
+  formatStyle(
+    'S05_TENENCIA',
+    backgroundColor = styleInterval(50, c('lightblue', 'lightcoral')),
+    full_length = TRUE
+  )
+```
+
+
+
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+# Grafico de barras
+ggplot(datos_dep) +
+  aes(x = Predominancia) +
+  geom_bar(fill = "#31C831") +
+  labs(
+    title = "Distribución de Predominancia",
+    subtitle = "CNA"
+  ) +
+  coord_flip() +
+  theme_gray() +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    axis.text.x = element_text(face = "italic"),
+    legend.title = element_text(face = "bold")
+  )
+
+```
+
+
+# Resumen estadístico
+
+### TDF  Leche
+
+```{r}
+DT::datatable(tdf_P_S7P85B, rownames = FALSE)
+```
+
+
+### Medidas de tendencia central
+
+```{r, warning=FALSE, message=FALSE}
+DT::datatable(tb_resumen, rownames = FALSE)
+```
+
+### Resumen de los 5 numeros
+
+#### |  Q2–Xmin < Xmax–Q2     |    Q2–Q1 < Q3–Q2     |    Q1–Xmin < Xmax–Q3  |    |
+
+```{r}
+DT::datatable(tb_resumen_5n, rownames = FALSE)
+```
+
+-Unimodal con sesgo a Derecha (Asimetría positiva)
+
+### Medidas de variabilidad
+
+```{r, warning=FALSE, message=FALSE}
+DT::datatable(tb_resumen_var, rownames = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+# Conclusiones
+
+- La predominacia de la unidad productora de mayor caracterización es "Propia".
+- En promedio 47.27 litros de leche fueron producidos.  
+- Los datos tienen una asimetria positiva hacia la derecha.   
+- El50% de los productores de leche tienen una produccion inferior a 13 litros.  
+- El 75% de los productores de leche tienen una produccion menor a 31 litros.  
+
+
+
+
