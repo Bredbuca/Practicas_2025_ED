@@ -1,0 +1,202 @@
+
+# Importar librerias ------------------------------------------------------
+
+library(data.table)
+library(dplyr)
+library(readxl)
+
+
+
+
+# Tablas de homologacion o auxiliares -------------------------------------
+
+tr_6 <- read_excel("Data/input/TEMATICA_DISENO DE REGISTRO CNA2014.xlsx",
+                   sheet = "TABLAS_REFERENCIA",
+                   range = "R2:S10") %>% 
+  rename("PRED_ETNICA_c"= "Pedominancia étnica")
+
+tr_7 <- read_excel("Data/input/TEMATICA_DISENO DE REGISTRO CNA2014.xlsx",
+                   sheet = "TABLAS_REFERENCIA",
+                   range = "U2:V13") %>% 
+  rename("S05_TENENCIA_c" = "Predominancia de tenencia en la Unidad productora")
+
+tr_8 <- read_excel("Data/input/TEMATICA_DISENO DE REGISTRO CNA2014.xlsx",
+                   sheet = "TABLAS_REFERENCIA",
+                   range = "X2:Y15") %>% 
+  rename("P_S6P71_c" = "principal fenomeno que afectó los pastos sembrados")
+
+
+
+
+
+# Construccion de dataframe -----------------------------------------------
+
+datos <- fread("Data/input/Guajira_Formato_CSV/S01_15_Unidad_productora_.csv") %>% 
+  filter(TIPO_UC == 1) %>% 
+  select(TIPO_REG,
+         ENCUESTA,
+         COD_VEREDA,
+         #Variable cualitativas
+         PRED_ETNICA, # TR 6
+         S05_TENENCIA, # TR 7
+         P_S6P71, # TR 8
+         P_S6P65, #Pastos o sabanas,
+         # Variables cuantitativas
+         P_S6P66, # Area de pastos
+         P_S7P84F, # N. de hembras
+         P_S7P85B, # Leche 
+         P_S12P150A, # Area total
+         P_S15P158B, # Personas en el predio
+         ) %>% 
+  na.omit() %>% 
+  mutate_at(.vars = c("TIPO_REG","ENCUESTA","COD_VEREDA","PRED_ETNICA",
+                      "S05_TENENCIA","P_S6P71","P_S6P65"),
+            .funs = as.character) %>% 
+  left_join(tr_6, by = "PRED_ETNICA") %>% 
+  left_join(tr_7, by = "S05_TENENCIA") %>% 
+  left_join(tr_8, by = "P_S6P71") %>% 
+  mutate(P_S6P65_c = ifelse(P_S6P65 == "1", "Si", "No"))
+
+str(datos)
+
+
+# Como supera el 5% de valores faltantes, no tiene sentido imputar.
+
+sum(is.na(datos$P_S7P84F))
+sum(is.na(datos$P_S7P85B))
+
+
+# Seleccion de variables cuantitativas
+v_cuanti <- readRDS("Data/output/datos_dep.rds") %>% 
+  select(P_S6P66, 
+         P_S7P84F,
+         P_S7P85B,
+         P_S12P150A,
+         P_S15P158B)
+v_cuanti1 <- data.matrix(v_cuanti)
+
+# calculo del vector de medias
+vec.medias <- (1/1457)*t(v_cuanti1)%*%rep(1,1457)
+knitr::kable(vec.medias)
+
+# calculo de la matriz de varianzas y covarianzas, usando la matriz moño.
+knitr::kable(rep(1,1457)%*%t(vec.medias))
+
+moño.cuanti<- v_cuanti1- rep(1,1457)%*%t(vec.medias) 
+knitr::kable(moño.cuanti)
+
+s2.cuanti<-(1/1456)*t(moño.cuanti)%*%moño.cuanti 
+knitr::kable(s2.cuanti)
+
+# calculo matriz de correlación 
+
+   # Tomanos inicialmente la matriz de varianzas y covarianzas 
+knitr::kable(s2.cuanti)
+
+   #seleccionando las varianzas de la matriz s2.cuanti
+knitr::kable(diag(s2.cuanti))
+
+   #calculamos las desviaciones estándar de cada variable 
+knitr::kable(sqrt(diag(s2.cuanti)))
+
+   #hallamos los inversos multiplicativos de las desviaciones estándar 
+knitr::kable(1/sqrt(diag(s2.cuanti)))
+
+   # construimos la matriz diagonal y la llamanos D.cuanti
+D.cuanti<-diag(1/sqrt(diag(s2.cuanti))) 
+knitr::kable(D.cuanti)
+
+   # Para encontrar a la matriz de correlación multiplicamos: 
+R.cuanti<-D.cuanti%*%s2.cuanti%*%D.cuanti 
+knitr::kable(R.cuanti)
+
+knitr::kable(cor(v_cuanti1))
+
+
+# DISPERSOGRAMA 
+pairs(v_cuanti1)
+
+
+# mostrando los diagramas en la parte inferior, cambiando el color 
+# de los puntos 
+pairs(v_cuanti1, upper.panel=NULL, col="blue")
+
+
+#Boxplot
+boxplot(scale(v_cuanti1), col=rainbow(5), main="Diagrama de caja para cada variable")
+
+
+
+# MEDIDAS GLOBALES DE VARIABILIDAD ----------------------------------------
+
+# 1. VARIANZA TOTAL. Calculando la traza de s2.cuanti
+# Tomando las varianzas
+diag(s2.cuanti)
+
+# ahora se suman las varianzas
+sum(diag(s2.cuanti))
+
+# 2. Varianza promedio. Se divide la varianza total entre el número de
+# variables
+sum(diag(s2.cuanti))/5
+
+# 3. VARIANZA GENERALIZADA. Determinante de s.man
+det(s2.cuanti)
+
+# 4. DESVIACIÓN TÍPICA GENERALIZADA
+sqrt(det(s2.cuanti))
+
+# 5. VARIABILIDAD PROMEDIO. Como se tiene p=5 variables, se calcula la 
+# raíz quinta. 
+(det(s2.cuanti))^(1/5)
+
+
+# 6.DESVIACIÓN PROMEDIO. Se toma la raíz 2p-ésima, es decir, que para 
+# este caso la raíz 10, porque es 2p = 2(5) = 10 
+(det(s2.cuanti))^(1/10)
+
+
+# DISTANCIA DE MAHALANOBIS ------------------------------------------------
+
+dis_maha<-mahalanobis(v_cuanti1, vec.medias, s2.cuanti) 
+dis_maha
+
+# Realizando una gráfica con los valores de las distancias: 
+plot(dis_maha, main="Distancias de mahalanobis para datos de las v. cuantitativas.")
+
+
+# COEFICIENTES DE ASIMETRIA Y KURTOSIS ------------------------------------
+
+Asi_Kur<-function(x){ 
+  
+  n<-dim(x)[1] 
+  p<-dim(x)[2]
+  vec.mediass<-(1/n)*t(x)%*%rep(1,n)
+  S<-cov(x)*(n-1)/n 
+  
+  b1.ma<-matrix(NA,n,n)
+  b2.ma<-rep(NA,n) 
+  
+  for (i in 1:n) {
+    
+    for (j in 1:n) {
+      b1.ma[i,j]<-(sum(t(x[i,]-vec.mediass)%*%solve(S)%*%(x[j,]-vec.mediass)))^3 
+    } 
+    b2.ma[i]<-(sum(t(x[i,]-vec.mediass)%*%solve(S)%*%(x[i,]-vec.mediass)))^2 
+  } 
+  Asimetria.multi<-sum(b1.ma)/(n^2) 
+  Kurtosis.multi<-sum(b2.ma)/n 
+  list("Filas"=n,"columnas"=p,"vector de medias"=vec.mediass, "S"=S,"Asimetria.mul"=Asimetria.multi,"Kurtosis.mul"=Kurtosis.multi) 
+}
+
+
+As_kurt<- Asi_Kur(v_cuanti1)
+As_kurt
+
+
+# Exportamos --------------------------------------------------------------
+
+saveRDS(datos, "Data/output/datos_dep.rds")
+write.csv(datos, "Data/output/datos_dep.csv", sep = ";")
+
+
