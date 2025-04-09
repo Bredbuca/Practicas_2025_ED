@@ -1,4 +1,5 @@
 
+
 # Importar librerias ------------------------------------------------------
 
 library(data.table)
@@ -31,7 +32,7 @@ tr_8 <- read_excel("Data/input/TEMATICA_DISENO DE REGISTRO CNA2014.xlsx",
 
 # Construccion de dataframe -----------------------------------------------
 
-datos <- fread("Data/input/Guajira_Formato_CSV/S01_15_Unidad_productora_.csv") %>% 
+datos <- fread("Data/input/Risaralda_CSV/S01_15_Unidad_Productora.csv") %>% 
   filter(TIPO_UC == 1) %>% 
   select(TIPO_REG,
          ENCUESTA,
@@ -192,6 +193,148 @@ Asi_Kur<-function(x){
 
 As_kurt<- Asi_Kur(v_cuanti1)
 As_kurt
+
+
+
+# # DISTRIBUCIÓN NORMAL MULTIVARIANTE -------------------------------------
+
+library(MASS)
+
+plot(mvrnorm(1457,vec.medias,s2.cuanti))
+
+
+
+# Mardia ------------------------------------------------------------------
+library(MVN)
+
+Mardia<-function(x){ 
+  
+  n<-dim(x)[1] 
+  p<-dim(x)[2] 
+  vec.medias<-(1/n)*t(x)%*%rep(1,n) 
+  S<-cov(x)*(n-1)/n 
+  
+  b1.ma<-matrix(NA,n,n) 
+  b2.ma<-rep(NA,n) 
+  
+  for (i in 1:n) { 
+    for (j in 1:n) { 
+      b1.ma[i,j]<-(sum(t(x[i,]-vec.medias)%*%solve(S)%*%(x[j,]-vec.medias)))^
+        3 
+    } 
+    b2.ma[i]<-(sum(t(x[i,]-vec.medias)%*%solve(S)%*%(x[i,]-vec.medias)))^2 
+  } 
+  
+  b1<-sum(b1.ma)/(n^2) 
+  b2<-sum(b2.ma)/n 
+  B1<-n*b1/6 
+  B2<-(b2-p*(p+2))/sqrt((8*p*(p+2))/n) 
+  v<-p*(p+1)*(p+2)/6 
+  p.val1<-1-pchisq(B1,v) 
+  p.val2<-2*(1-pnorm(abs(B2))) 
+  list("Filas"=n,"columnas"=p,"vector de medias"= vec.medias,
+       "S"=S,"Coef_Asimetria.multi"=b1,"Coef_kurtosis.multi"=b2, 
+       "B1"=B1,"B2"=B2, "v"=v, 
+       "p.val.Asimetria"=p.val1,"p.val.kurtosis"=p.val2)
+}
+
+Mardia(v_cuanti1)
+
+mvn(v_cuanti1, mvnTest = c("mardia"))
+
+
+
+#  Deteccion de Datos atipicos ----------------------------------------------------------
+
+library(MASS);# para calcular estimadores robustos 
+library(MVN); # para realizar prueba de multinormalidad
+
+library(aplpack);#para graficar los rostros de Chernoff
+
+# Dispersograma 
+pairs(v_cuanti1)
+
+# GRÁFICO CHI CUADRADO - Chi square plot 
+mvn(v_cuanti1, multivariatePlot = "qq")
+
+# DETECCIÓN DE ATÍPICOS, CRITERIO DISTANCIA DE MAHALANOBIS 
+# CON ESTIMADORS USUALES 
+
+chi0.95<-qchisq(0.95,5)
+chi0.95
+
+# Hacemos un plot con las distancias de mahalanobis y trazamos una 
+# recta paralela al eje X con ecuación y=chi0.95, es decir, y= 11.0705
+
+par(mfrow=c(1,1)) 
+plot(dis_maha) 
+abline(chi0.95,0, col="red")
+
+
+# DETECCIÓN DE ATÍPICOS, CRITERIO DISTANCIA DE MAHALANOBIS 
+# CON ESTIMADORS ROBUSTOS 
+
+# ELIPSOIDE DE MÍNIMO VOLUMEN - MVE 
+
+# Vector de medias y matriz de covarianzas 
+vm.mve.cuanti<-cov.mve(v_cuanti1)$cen 
+vm.mve.cuanti
+
+s.mve.cuanti<-cov.mve(v_cuanti1)$cov 
+s.mve.cuanti
+#Matriz de correlacion usando mve
+r.mve.cuanti<-cov.mve(v_cuanti1,cor=TRUE)$cor 
+r.mve.cuanti
+
+# Cálculo de las distancias de mahalanobis usando los estimadores robustos 
+# vector de medias y matriz de covarianzas dados por mve: 
+
+di.mve.cuanti<-mahalanobis(v_cuanti1,vm.mve.cuanti,s.mve.cuanti) 
+
+# gráfica de di.mve.bebes 
+plot(di.mve.cuanti) 
+
+# Usando el mismo valor de alfa=0.05, veamos cuales distancias de 
+# mahalanobis son superiores al percentil chi0.95 
+
+plot(di.mve.cuanti) 
+abline(chi0.95,1, col="red")
+
+# Y en la matriz resumen 
+resumen.cuanti<-cbind(v_cuanti1, dis_maha, di.mve.cuanti)
+
+
+
+# USANDO EL OTRO ESTIMADOR ROBUSTO 
+# COVARIANZA DE DETERMINANTE MÍNIMO - MCD 
+
+# Vector de medias y matriz de covarianzas 
+vm.mcd.cuanti<-cov.mcd(v_cuanti1)$cen 
+vm.mcd.cuanti
+
+s.mcd.cuanti<-cov.mcd(v_cuanti1)$cov 
+s.mcd.cuanti
+
+#Matriz de correlacion mcd
+r.mcd.cuanti<-cov.mcd(v_cuanti1,cor=TRUE)$cor 
+r.mcd.cuanti
+
+# Cálculo de las distancias de mahalanobis usando los estimadores robustos 
+# vector de medias y matriz de covarianzas dados por mcd: 
+
+di.mcd.cuanti<-mahalanobis(v_cuanti1,vm.mcd.cuanti,s.mcd.cuanti) 
+
+# gráfica de di.mve.cuanti
+
+# Usando el mismo valor de alfa=0.05, veamos cuales distancias de 
+# mahalanobis son superiores al percentil chi0.95 
+
+plot(di.mcd.cuanti) 
+abline(chi0.95,1, col="red")
+
+# Y en la matriz resumen 
+resumen.cuanti_f<-cbind(v_cuanti1, dis_maha, di.mve.cuanti, di.mcd.cuanti) 
+
 
 
 # Exportamos --------------------------------------------------------------
